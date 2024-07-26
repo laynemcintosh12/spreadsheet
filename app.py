@@ -1,6 +1,8 @@
 import os
+import base64
+import json
 from flask import Flask, render_template, request, redirect, url_for, session
-from google.oauth2.service_account import Credentials
+from google.oauth2 import service_account
 from googleapiclient.discovery import build
 import config
 
@@ -8,7 +10,15 @@ app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
 
 # Google Sheets setup
-creds = Credentials.from_service_account_file(config.SERVICE_ACCOUNT_FILE, scopes=config.SCOPES)
+# Decode the Base64 encoded JSON string from environment variable
+service_account_json = os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON')
+if service_account_json:
+    service_account_json = base64.b64decode(service_account_json).decode('utf-8')
+    credentials_info = json.loads(service_account_json)
+else:
+    raise ValueError("Service account JSON is not set in environment variables.")
+
+creds = service_account.Credentials.from_service_account_info(credentials_info)
 service = build('sheets', 'v4', credentials=creds)
 
 @app.route('/')
@@ -58,8 +68,6 @@ def data(sheet):
         filtered_data_rows = []
 
     return render_template('data.html', headers=headers, values=filtered_data_rows, sheet=sheet)
-
-
 
 @app.route('/logout')
 def logout():
